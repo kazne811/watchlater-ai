@@ -25,6 +25,23 @@ const STATUS_OPTIONS = [
   { value: 'done', label: '完了', color: 'text-emerald-600 bg-emerald-50' },
 ]
 
+const SOURCE_BADGE: Record<string, { label: string; icon: string; color: string }> = {
+  youtube: { label: 'YouTube', icon: '▶', color: 'bg-red-50 text-red-500' },
+  url:     { label: 'Web',     icon: '🌐', color: 'bg-slate-50 text-slate-500' },
+  image:   { label: 'スクショ', icon: '🖼', color: 'bg-violet-50 text-violet-500' },
+  pdf:     { label: 'PDF',     icon: '📄', color: 'bg-orange-50 text-orange-500' },
+  text:    { label: 'テキスト', icon: '📝', color: 'bg-teal-50 text-teal-500' },
+}
+
+function getDomain(url?: string): string | null {
+  if (!url) return null
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return null
+  }
+}
+
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
   const mins = Math.floor(diff / 60000)
@@ -66,6 +83,15 @@ export default function ItemCard({ item, onUpdated, onDeleted }: Props) {
   const isYouTube = !!(item.thumbnail_url && item.url &&
     (item.url.includes('youtube.com') || item.url.includes('youtu.be')))
 
+  // source_type がない古いアイテムのフォールバック
+  const sourceType = item.source_type ?? (
+    item.url
+      ? (item.url.includes('youtube.com') || item.url.includes('youtu.be') ? 'youtube' : 'url')
+      : 'text'
+  )
+  const sourceBadge = SOURCE_BADGE[sourceType] ?? SOURCE_BADGE['url']
+  const domain = sourceType === 'url' ? getDomain(item.url) : null
+
   return (
     <div
       className={`group bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col ${
@@ -103,9 +129,14 @@ export default function ItemCard({ item, onUpdated, onDeleted }: Props) {
 
       <div className="p-4 flex flex-col gap-3 flex-1">
         {/* Header row */}
-        <div className="flex items-start gap-2">
+        <div className="flex items-start gap-2 flex-wrap">
           <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${catColor}`}>
             {item.category}
+          </span>
+          {/* 取り込み元バッジ */}
+          <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full flex items-center gap-1 ${sourceBadge.color}`}>
+            <span>{sourceBadge.icon}</span>
+            <span>{domain ?? sourceBadge.label}</span>
           </span>
           <div className="flex-1" />
           <button

@@ -13,7 +13,7 @@ load_dotenv()
 
 from database import Base, engine, get_db, run_migrations
 from models import Item
-from scraper import scrape_url
+from scraper import scrape_url, extract_youtube_id
 from ai_service import analyze_content, analyze_image, analyze_pdf
 
 Base.metadata.create_all(bind=engine)
@@ -69,6 +69,7 @@ class ItemOut(BaseModel):
     title: str
     summary: Optional[str]
     thumbnail_url: Optional[str]
+    source_type: Optional[str]
     tags: List[str]
     category: str
     priority: str
@@ -96,8 +97,13 @@ async def create_item(payload: ItemCreate, db: Session = Depends(get_db)):
     title = ""
     content = ""
     thumbnail_url = None
+    source_type = "text"
 
     if payload.url:
+        if extract_youtube_id(payload.url):
+            source_type = "youtube"
+        else:
+            source_type = "url"
         try:
             scraped = await scrape_url(payload.url)
             title = scraped["title"]
@@ -146,6 +152,7 @@ async def create_item(payload: ItemCreate, db: Session = Depends(get_db)):
         content=content[:5000] if content else None,
         summary=summary,
         thumbnail_url=thumbnail_url,
+        source_type=source_type,
         tags=analysis.get("tags", []),
         category=analysis.get("category", "その他"),
         priority=analysis.get("priority", "medium"),
@@ -260,6 +267,7 @@ async def create_item_from_image(
         title=analysis.get("title") or "スクリーンショット",
         content=None,
         summary=summary,
+        source_type="image",
         tags=analysis.get("tags", []),
         category=analysis.get("category", "その他"),
         priority=analysis.get("priority", "medium"),
@@ -306,6 +314,7 @@ async def create_item_from_pdf(
         title=analysis.get("title") or original_filename,
         content=None,
         summary=summary,
+        source_type="pdf",
         tags=analysis.get("tags", []),
         category=analysis.get("category", "その他"),
         priority=analysis.get("priority", "medium"),

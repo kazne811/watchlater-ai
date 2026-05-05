@@ -29,6 +29,7 @@ def run_migrations(engine):
     from sqlalchemy import text
     migrations = [
         "ALTER TABLE items ADD COLUMN thumbnail_url VARCHAR",
+        "ALTER TABLE items ADD COLUMN source_type VARCHAR",
     ]
     with engine.connect() as conn:
         for sql in migrations:

@@ -12,6 +12,7 @@ class Item(Base):
     content = Column(Text, nullable=True)
     summary = Column(Text, nullable=True)
     thumbnail_url = Column(String, nullable=True)   # YouTube等のサムネイル
+    source_type = Column(String, nullable=True)     # youtube / url / image / pdf / text
     tags = Column(JSON, default=list)
     category = Column(String, default="その他")
     priority = Column(String, default="medium")

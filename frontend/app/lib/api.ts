@@ -6,6 +6,7 @@ export interface Item {
   title: string
   summary?: string
   thumbnail_url?: string
+  source_type?: 'youtube' | 'url' | 'image' | 'pdf' | 'text'
   tags: string[]
   category: string
   priority: 'high' | 'medium' | 'low'
