@@ -121,7 +121,7 @@ export default function ItemCard({ item, onUpdated, onDeleted }: Props) {
           </button>
         </div>
 
-        {/* Title + サムネイル（横並び） */}
+        {/* Title + サムネイル（横並び・全幅なし） */}
         <div className="flex gap-2 items-start">
           <div className="flex-1 min-w-0">
             {item.url ? (
