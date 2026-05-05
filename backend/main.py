@@ -20,14 +20,17 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="WatchLater AI", version="1.0.0")
 
-# 許可オリジン: 環境変数で本番URLを追加できる
-_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
-ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+# 許可オリジン: 環境変数で設定、未設定時はすべて許可
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "*")
+if _raw_origins.strip() == "*":
+    ALLOWED_ORIGINS = ["*"]
+else:
+    ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
+    allow_credentials=ALLOWED_ORIGINS != ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
