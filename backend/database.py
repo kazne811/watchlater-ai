@@ -22,3 +22,18 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def run_migrations(engine):
+    """既存DBへのカラム追加（冪等）"""
+    from sqlalchemy import text
+    migrations = [
+        "ALTER TABLE items ADD COLUMN thumbnail_url VARCHAR",
+    ]
+    with engine.connect() as conn:
+        for sql in migrations:
+            try:
+                conn.execute(text(sql))
+                conn.commit()
+            except Exception:
+                conn.rollback()  # カラムが既に存在する場合はスキップ

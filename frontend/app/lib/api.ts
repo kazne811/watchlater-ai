@@ -5,6 +5,7 @@ export interface Item {
   url?: string
   title: string
   summary?: string
+  thumbnail_url?: string
   tags: string[]
   category: string
   priority: 'high' | 'medium' | 'low'

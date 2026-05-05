@@ -63,6 +63,9 @@ export default function ItemCard({ item, onUpdated, onDeleted }: Props) {
 
   const statusInfo = STATUS_OPTIONS.find((s) => s.value === item.status)!
 
+  const isYouTube = !!(item.thumbnail_url && item.url &&
+    (item.url.includes('youtube.com') || item.url.includes('youtu.be')))
+
   return (
     <div
       className={`group bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col ${
@@ -71,6 +74,32 @@ export default function ItemCard({ item, onUpdated, onDeleted }: Props) {
     >
       {/* Top accent bar by priority */}
       <div className={`h-1 w-full ${PRIORITY_DOT[item.priority]}`} />
+
+      {/* Thumbnail (YouTube etc.) */}
+      {item.thumbnail_url && (
+        <a
+          href={item.url || '#'}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="relative block w-full aspect-video overflow-hidden bg-slate-100"
+        >
+          <img
+            src={item.thumbnail_url}
+            alt={item.title}
+            className="w-full h-full object-cover"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+          />
+          {isYouTube && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="bg-black/60 rounded-full w-12 h-12 flex items-center justify-center hover:bg-red-600 transition-colors">
+                <svg className="w-5 h-5 text-white ml-0.5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
+            </div>
+          )}
+        </a>
+      )}
 
       <div className="p-4 flex flex-col gap-3 flex-1">
         {/* Header row */}

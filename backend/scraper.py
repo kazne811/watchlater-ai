@@ -1,8 +1,59 @@
+import re
 import httpx
 from bs4 import BeautifulSoup
 
+# YouTube URL パターン
+_YT_PATTERNS = [
+    r'(?:youtube\.com/watch\?(?:.*&)?v=|youtu\.be/|youtube\.com/shorts/)([a-zA-Z0-9_-]{11})',
+]
+
+
+def extract_youtube_id(url: str) -> str | None:
+    for pattern in _YT_PATTERNS:
+        m = re.search(pattern, url)
+        if m:
+            return m.group(1)
+    return None
+
+
+async def scrape_youtube(url: str) -> dict:
+    """YouTube oEmbed API で動画情報を取得（APIキー不要）"""
+    video_id = extract_youtube_id(url)
+    oembed_url = f"https://www.youtube.com/oembed?url={url}&format=json"
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(oembed_url)
+        resp.raise_for_status()
+        data = resp.json()
+
+    title = data.get("title", "")
+    channel = data.get("author_name", "")
+    thumbnail_url = (
+        f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
+        if video_id
+        else data.get("thumbnail_url", "")
+    )
+
+    content = (
+        f"YouTube動画タイトル: {title}\n"
+        f"チャンネル: {channel}\n"
+        f"URL: {url}\n"
+        f"この動画はYouTubeで公開されている映像コンテンツです。"
+    )
+
+    return {
+        "title": title,
+        "content": content,
+        "thumbnail_url": thumbnail_url,
+        "is_youtube": True,
+    }
+
 
 async def scrape_url(url: str) -> dict:
+    # YouTube は専用の取得処理
+    if extract_youtube_id(url):
+        return await scrape_youtube(url)
+
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -33,7 +84,6 @@ async def scrape_url(url: str) -> dict:
         if h1:
             title = h1.get_text(strip=True)
 
-    # OG description as a hint
     description = ""
     og_desc = soup.find("meta", property="og:description") or soup.find(
         "meta", attrs={"name": "description"}
@@ -41,7 +91,6 @@ async def scrape_url(url: str) -> dict:
     if og_desc and og_desc.get("content"):
         description = og_desc["content"]
 
-    # Main content
     main = (
         soup.find("article")
         or soup.find("main")
@@ -50,7 +99,6 @@ async def scrape_url(url: str) -> dict:
         or soup.find("body")
     )
     body_text = main.get_text(separator="\n", strip=True) if main else ""
-
     content = (description + "\n\n" + body_text).strip()[:4000]
 
-    return {"title": title.strip(), "content": content}
+    return {"title": title.strip(), "content": content, "thumbnail_url": None, "is_youtube": False}

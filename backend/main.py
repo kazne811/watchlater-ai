@@ -11,12 +11,13 @@ from sqlalchemy.orm import Session
 
 load_dotenv()
 
-from database import Base, engine, get_db
+from database import Base, engine, get_db, run_migrations
 from models import Item
 from scraper import scrape_url
 from ai_service import analyze_content, analyze_image, analyze_pdf
 
 Base.metadata.create_all(bind=engine)
+run_migrations(engine)
 
 app = FastAPI(title="WatchLater AI", version="1.0.0")
 
@@ -67,6 +68,7 @@ class ItemOut(BaseModel):
     url: Optional[str]
     title: str
     summary: Optional[str]
+    thumbnail_url: Optional[str]
     tags: List[str]
     category: str
     priority: str
@@ -93,12 +95,14 @@ async def create_item(payload: ItemCreate, db: Session = Depends(get_db)):
 
     title = ""
     content = ""
+    thumbnail_url = None
 
     if payload.url:
         try:
             scraped = await scrape_url(payload.url)
             title = scraped["title"]
             content = scraped["content"]
+            thumbnail_url = scraped.get("thumbnail_url")
         except Exception:
             title = payload.url
             content = ""
@@ -141,6 +145,7 @@ async def create_item(payload: ItemCreate, db: Session = Depends(get_db)):
         title=analysis.get("title") or title or "無題",
         content=content[:5000] if content else None,
         summary=summary,
+        thumbnail_url=thumbnail_url,
         tags=analysis.get("tags", []),
         category=analysis.get("category", "その他"),
         priority=analysis.get("priority", "medium"),
