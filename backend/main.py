@@ -20,20 +20,34 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="WatchLater AI", version="1.0.0")
 
-# 許可オリジン: 環境変数で設定、未設定時はすべて許可
-_raw_origins = os.getenv("ALLOWED_ORIGINS", "*")
-if _raw_origins.strip() == "*":
-    ALLOWED_ORIGINS = ["*"]
-else:
-    ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
-
+# CORSMiddleware + カスタムミドルウェアで二重に対応
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=ALLOWED_ORIGINS != ["*"],
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request as StarletteRequest
+
+class ForceCORSMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: StarletteRequest, call_next):
+        if request.method == "OPTIONS":
+            from starlette.responses import Response
+            response = Response()
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+            return response
+        response = await call_next(request)
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        return response
+
+app.add_middleware(ForceCORSMiddleware)
 
 
 # ---------- Pydantic schemas ----------
