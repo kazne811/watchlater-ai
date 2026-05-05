@@ -1,6 +1,6 @@
 'use client'
 import { useRef, useState } from 'react'
-import { api } from '../lib/api'
+import { api, getAuthHeaders } from '../lib/api'
 
 const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -70,10 +70,11 @@ export default function AddItemModal({ onClose, onAdded }: Props) {
 
     setLoading(true)
     try {
+      const authHeaders = await getAuthHeaders()
       if (tab === 'image' && file) {
         const formData = new FormData()
         formData.append('file', file)
-        const res = await fetch(`${BASE}/items/image`, { method: 'POST', body: formData })
+        const res = await fetch(`${BASE}/items/image`, { method: 'POST', body: formData, headers: authHeaders })
         if (!res.ok) {
           const err = await res.json().catch(() => ({ detail: res.statusText }))
           throw new Error(err.detail || 'エラーが発生しました')
@@ -81,7 +82,7 @@ export default function AddItemModal({ onClose, onAdded }: Props) {
       } else if (tab === 'pdf' && pdfFile) {
         const formData = new FormData()
         formData.append('file', pdfFile)
-        const res = await fetch(`${BASE}/items/pdf`, { method: 'POST', body: formData })
+        const res = await fetch(`${BASE}/items/pdf`, { method: 'POST', body: formData, headers: authHeaders })
         if (!res.ok) {
           const err = await res.json().catch(() => ({ detail: res.statusText }))
           throw new Error(err.detail || 'エラーが発生しました')

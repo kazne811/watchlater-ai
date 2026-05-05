@@ -1,3 +1,5 @@
+import { getSession } from 'next-auth/react'
+
 const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 export interface Item {
@@ -24,9 +26,19 @@ export interface Stats {
   by_category: Record<string, number>
 }
 
+// 認証ヘッダーを取得（FormData送信時にも再利用できるよう export）
+export async function getAuthHeaders(): Promise<Record<string, string>> {
+  const session = await getSession()
+  if (session?.user?.email) {
+    return { 'X-User-Id': session.user.email }
+  }
+  return {}
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const authHeaders = await getAuthHeaders()
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders },
     ...init,
   })
   if (!res.ok) {

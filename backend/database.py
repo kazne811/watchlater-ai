@@ -30,6 +30,7 @@ def run_migrations(engine):
     migrations = [
         "ALTER TABLE items ADD COLUMN thumbnail_url VARCHAR",
         "ALTER TABLE items ADD COLUMN source_type VARCHAR",
+        "ALTER TABLE items ADD COLUMN user_id VARCHAR",
     ]
     with engine.connect() as conn:
         for sql in migrations:

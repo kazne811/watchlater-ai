@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import cast, String, or_
@@ -21,7 +21,6 @@ run_migrations(engine)
 
 app = FastAPI(title="WatchLater AI", version="1.0.0")
 
-# CORSMiddleware + カスタムミドルウェアで二重に対応
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -49,6 +48,15 @@ class ForceCORSMiddleware(BaseHTTPMiddleware):
         return response
 
 app.add_middleware(ForceCORSMiddleware)
+
+
+# ---------- 認証 ----------
+
+async def get_current_user(x_user_id: Optional[str] = Header(None)) -> str:
+    """X-User-Id ヘッダーからユーザーIDを取得。なければ 401"""
+    if not x_user_id:
+        raise HTTPException(status_code=401, detail="ログインが必要です")
+    return x_user_id
 
 
 # ---------- Pydantic schemas ----------
@@ -90,7 +98,11 @@ async def health():
 
 
 @app.post("/items", response_model=ItemOut)
-async def create_item(payload: ItemCreate, db: Session = Depends(get_db)):
+async def create_item(
+    payload: ItemCreate,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user),
+):
     if not payload.url and not payload.text:
         raise HTTPException(status_code=400, detail="url または text のどちらかが必要です")
 
@@ -120,7 +132,6 @@ async def create_item(payload: ItemCreate, db: Session = Depends(get_db)):
             first_line = payload.text.split("\n")[0]
             title = first_line[:60] + ("…" if len(first_line) > 60 else "")
 
-    # AI analysis
     try:
         analysis = await analyze_content(title=title, content=content, url=payload.url)
     except Exception as e:
@@ -148,6 +159,7 @@ async def create_item(payload: ItemCreate, db: Session = Depends(get_db)):
 
     item = Item(
         url=payload.url,
+        user_id=current_user,
         title=analysis.get("title") or title or "無題",
         content=content[:5000] if content else None,
         summary=summary,
@@ -172,8 +184,9 @@ async def list_items(
     tag: Optional[str] = None,
     q: Optional[str] = None,
     db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user),
 ):
-    query = db.query(Item)
+    query = db.query(Item).filter(Item.user_id == current_user)
 
     if status:
         query = query.filter(Item.status == status)
@@ -198,16 +211,25 @@ async def list_items(
 
 
 @app.get("/items/{item_id}", response_model=ItemOut)
-async def get_item(item_id: int, db: Session = Depends(get_db)):
-    item = db.query(Item).filter(Item.id == item_id).first()
+async def get_item(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user),
+):
+    item = db.query(Item).filter(Item.id == item_id, Item.user_id == current_user).first()
     if not item:
         raise HTTPException(status_code=404, detail="アイテムが見つかりません")
     return item
 
 
 @app.put("/items/{item_id}", response_model=ItemOut)
-async def update_item(item_id: int, payload: ItemUpdate, db: Session = Depends(get_db)):
-    item = db.query(Item).filter(Item.id == item_id).first()
+async def update_item(
+    item_id: int,
+    payload: ItemUpdate,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user),
+):
+    item = db.query(Item).filter(Item.id == item_id, Item.user_id == current_user).first()
     if not item:
         raise HTTPException(status_code=404, detail="アイテムが見つかりません")
     if payload.status is not None:
@@ -220,8 +242,12 @@ async def update_item(item_id: int, payload: ItemUpdate, db: Session = Depends(g
 
 
 @app.delete("/items/{item_id}")
-async def delete_item(item_id: int, db: Session = Depends(get_db)):
-    item = db.query(Item).filter(Item.id == item_id).first()
+async def delete_item(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user),
+):
+    item = db.query(Item).filter(Item.id == item_id, Item.user_id == current_user).first()
     if not item:
         raise HTTPException(status_code=404, detail="アイテムが見つかりません")
     db.delete(item)
@@ -241,6 +267,7 @@ ALLOWED_IMAGE_TYPES = {
 async def create_item_from_image(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user),
 ):
     media_type = file.content_type or "image/png"
     if media_type not in ALLOWED_IMAGE_TYPES:
@@ -264,6 +291,7 @@ async def create_item_from_image(
 
     item = Item(
         url=None,
+        user_id=current_user,
         title=analysis.get("title") or "スクリーンショット",
         content=None,
         summary=summary,
@@ -284,6 +312,7 @@ async def create_item_from_image(
 async def create_item_from_pdf(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user),
 ):
     if file.content_type not in ("application/pdf", "application/octet-stream") and \
        not (file.filename or "").lower().endswith(".pdf"):
@@ -311,6 +340,7 @@ async def create_item_from_pdf(
 
     item = Item(
         url=None,
+        user_id=current_user,
         title=analysis.get("title") or original_filename,
         content=None,
         summary=summary,
@@ -328,8 +358,11 @@ async def create_item_from_pdf(
 
 
 @app.get("/tags")
-async def list_tags(db: Session = Depends(get_db)):
-    items = db.query(Item.tags).all()
+async def list_tags(
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user),
+):
+    items = db.query(Item.tags).filter(Item.user_id == current_user).all()
     tag_set: set[str] = set()
     for (tags,) in items:
         if tags:
@@ -338,15 +371,20 @@ async def list_tags(db: Session = Depends(get_db)):
 
 
 @app.get("/stats")
-async def get_stats(db: Session = Depends(get_db)):
-    total = db.query(Item).count()
-    unread = db.query(Item).filter(Item.status == "unread").count()
-    reading = db.query(Item).filter(Item.status == "reading").count()
-    done = db.query(Item).filter(Item.status == "done").count()
+async def get_stats(
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user),
+):
+    base = db.query(Item).filter(Item.user_id == current_user)
+    total   = base.count()
+    unread  = base.filter(Item.status == "unread").count()
+    reading = base.filter(Item.status == "reading").count()
+    done    = base.filter(Item.status == "done").count()
 
     from sqlalchemy import func as sqlfunc
     cats = (
         db.query(Item.category, sqlfunc.count(Item.id))
+        .filter(Item.user_id == current_user)
         .group_by(Item.category)
         .all()
     )

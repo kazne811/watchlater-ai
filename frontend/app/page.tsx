@@ -1,5 +1,6 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
+import { useSession, signIn, signOut } from 'next-auth/react'
 import { api, type Item, type Stats } from './lib/api'
 import AddItemModal from './components/AddItemModal'
 import ItemCard from './components/ItemCard'
@@ -16,7 +17,46 @@ const CATEGORIES = [
   'エンタメ', 'ライフスタイル', 'ニュース', 'その他',
 ]
 
+// ---- ログイン画面 ----
+function LoginPage() {
+  const [loading, setLoading] = useState(false)
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl shadow-xl p-10 w-full max-w-md text-center">
+        <div className="text-6xl mb-4">📚</div>
+        <h1 className="text-2xl font-bold text-slate-800 mb-2">WatchLater AI</h1>
+        <p className="text-slate-500 mb-2 text-sm">
+          URLや動画・PDF・スクショを投げ込むだけ。
+        </p>
+        <p className="text-slate-500 mb-8 text-sm">
+          AIが自動でタイトル・要約・タグを生成して整理します。
+        </p>
+        <button
+          onClick={() => { setLoading(true); signIn('google') }}
+          disabled={loading}
+          className="w-full flex items-center justify-center gap-3 py-3 px-6 bg-white border-2 border-slate-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all font-medium text-slate-700 disabled:opacity-60"
+        >
+          {/* Google ロゴ */}
+          <svg width="20" height="20" viewBox="0 0 48 48">
+            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+          </svg>
+          {loading ? 'リダイレクト中...' : 'Googleでログイン'}
+        </button>
+        <p className="text-xs text-slate-400 mt-6">
+          ログインするとデータがアカウントに紐付けられ、<br />どのデバイスからでもアクセスできます。
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// ---- メインアプリ ----
 export default function Home() {
+  const { data: session, status } = useSession()
+
   const [items, setItems] = useState<Item[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [tags, setTags] = useState<string[]>([])
@@ -53,8 +93,8 @@ export default function Home() {
   }, [filterStatus, filterCategory, filterTag, search])
 
   useEffect(() => {
-    fetchAll()
-  }, [fetchAll])
+    if (session) fetchAll()
+  }, [fetchAll, session])
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -71,6 +111,24 @@ export default function Home() {
     api.getStats().then(setStats)
   }
 
+  // セッション読み込み中
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-4xl mb-3 animate-pulse">📚</div>
+          <p className="text-slate-400 text-sm">読み込み中...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // 未ログイン
+  if (!session) {
+    return <LoginPage />
+  }
+
+  // ログイン済み
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
@@ -118,6 +176,24 @@ export default function Home() {
             <span>＋</span>
             <span className="hidden sm:block">追加</span>
           </button>
+
+          {/* ユーザーアバター + サインアウト */}
+          <div className="flex items-center gap-2 shrink-0">
+            {session.user?.image && (
+              <img
+                src={session.user.image}
+                alt={session.user.name || ''}
+                className="w-7 h-7 rounded-full border border-slate-200"
+                title={session.user.name || session.user.email || ''}
+              />
+            )}
+            <button
+              onClick={() => signOut()}
+              className="text-xs text-slate-400 hover:text-slate-600 transition-colors hidden sm:block"
+            >
+              サインアウト
+            </button>
+          </div>
         </div>
       </header>
 

@@ -11,8 +11,9 @@ class Item(Base):
     title = Column(String, nullable=False)
     content = Column(Text, nullable=True)
     summary = Column(Text, nullable=True)
-    thumbnail_url = Column(String, nullable=True)   # YouTube等のサムネイル
-    source_type = Column(String, nullable=True)     # youtube / url / image / pdf / text
+    user_id = Column(String, nullable=True, index=True)  # ログインユーザーのメールアドレス
+    thumbnail_url = Column(String, nullable=True)        # YouTube等のサムネイル
+    source_type = Column(String, nullable=True)          # youtube / url / image / pdf / text
     tags = Column(JSON, default=list)
     category = Column(String, default="その他")
     priority = Column(String, default="medium")
