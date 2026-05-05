@@ -101,32 +101,6 @@ export default function ItemCard({ item, onUpdated, onDeleted }: Props) {
       {/* Top accent bar by priority */}
       <div className={`h-1 w-full ${PRIORITY_DOT[item.priority]}`} />
 
-      {/* Thumbnail (YouTube etc.) */}
-      {item.thumbnail_url && (
-        <a
-          href={item.url || '#'}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="relative block w-full aspect-video overflow-hidden bg-slate-100"
-        >
-          <img
-            src={item.thumbnail_url}
-            alt={item.title}
-            className="w-full h-full object-cover"
-            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-          />
-          {isYouTube && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="bg-black/60 rounded-full w-12 h-12 flex items-center justify-center hover:bg-red-600 transition-colors">
-                <svg className="w-5 h-5 text-white ml-0.5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              </div>
-            </div>
-          )}
-        </a>
-      )}
-
       <div className="p-4 flex flex-col gap-3 flex-1">
         {/* Header row */}
         <div className="flex items-start gap-2 flex-wrap">
@@ -147,21 +121,49 @@ export default function ItemCard({ item, onUpdated, onDeleted }: Props) {
           </button>
         </div>
 
-        {/* Title */}
-        {item.url ? (
-          <a
-            href={item.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-semibold text-slate-800 hover:text-brand-600 line-clamp-2 leading-snug text-sm"
-          >
-            {item.title}
-          </a>
-        ) : (
-          <p className="font-semibold text-slate-800 line-clamp-2 leading-snug text-sm">
-            {item.title}
-          </p>
-        )}
+        {/* Title + サムネイル（横並び） */}
+        <div className="flex gap-2 items-start">
+          <div className="flex-1 min-w-0">
+            {item.url ? (
+              <a
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-slate-800 hover:text-brand-600 line-clamp-2 leading-snug text-sm"
+              >
+                {item.title}
+              </a>
+            ) : (
+              <p className="font-semibold text-slate-800 line-clamp-2 leading-snug text-sm">
+                {item.title}
+              </p>
+            )}
+          </div>
+          {item.thumbnail_url && (
+            <a
+              href={item.url || '#'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="relative shrink-0 w-24 h-14 rounded-lg overflow-hidden bg-slate-100"
+            >
+              <img
+                src={item.thumbnail_url}
+                alt=""
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+              />
+              {isYouTube && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="bg-black/55 rounded-full w-7 h-7 flex items-center justify-center hover:bg-red-600 transition-colors">
+                    <svg className="w-3 h-3 text-white ml-0.5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </div>
+                </div>
+              )}
+            </a>
+          )}
+        </div>
 
         {/* Summary */}
         {summaryLines.length > 0 && (
